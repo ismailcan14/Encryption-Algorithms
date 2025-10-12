@@ -1,103 +1,184 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useEffect, useRef, useState } from "react";
+import { CaesarCipher } from "../../../cryption/algorithms/Caesar";
+
+type OutMsg = { //mesaj yollarken ki tipimiz
+  type: string;  //type alanı zorunlu
+  room?: string; //oda
+  alg?: string;//algoritma
+  cipher?: string; //ve şifreli mesaj kısmı bos olabilir
+  [k: string]: any; //vereceğimiz key alanı
+};
+
+export default function Page()
+{
+const [connected,setConnected]=useState(false);
+const [room,setRoom]=useState("demo-1");//katılacagın oda id si
+const [plain,setPlain]=useState("");//düz metin
+const [url,setUrl]=useState("ws://127.0.0.1:8765"); //sunucu adresi
+const [key,setKey]=useState("3"); //algoritmada kullanacagımız key
+const [log,setLog]=useState<String[]>([]); //ekranda gösterilecek metinlerin dizisi
+
+  const wsRef=useRef<WebSocket|null>(null);
+  //burada React ın useRef hookunu kullandık çünkü WebSocket ten 1 adet nesne olusturuyoruz ve sayfa yenıden render edilse bile
+  //nesnemiz korunuyor. wsRef.current ile de değerni oluşturabiliyoruz.
+  //kısaca diyoruz ki wsRef in WebSocket türünde bir referansı var ancak şuan boş. wsRef.curren ileri WS nesnesi tutacak.
+const cipher=useRef(new CaesarCipher());
+  //aynı şekilde de burada da CaesarCipher sınıfından bir nesne oluşturduk. bu nesne ile şifreleme ve şifre çözmeyi kullanacağız.
+  //useRef() kullandıgımız için nesne proje sonlanana kadar bizimle kalacak.
+
+  const connect = () => { //bağlan butonuna basınca çalışacak fonksiyon
+    if (connected || wsRef.current) return; //bağlıysan veya ws nesnesi varsa atla!
+    try {
+      const ws = new WebSocket(url); //yeni bir ws nesnesi oluşturup
+      wsRef.current = ws; //wsRef referansına bu nesneyi atıyoruz.
+      //yukarıda belirttiğimiz gibi wsRef boş bir WebSocket nesnesi tutan bir konteynır gibiydi.
+
+      ws.onopen = () => { //mesaj atabilecek duruma gelince 
+        setConnected(true); //bağlantıyı true yap
+        append(`[open] ${url}`); //log a url açık şeklinde metin ekledik  
+        const join = { type: "join", room: room };  //join adlı js objesini olusturuyoruz
+        ws.send(JSON.stringify(join)); //js objesini string hale getirip ws bağlantısına yollar
+        append(`[send] ${JSON.stringify(join)}`); //log a bir satır ekliyoruz.
+      };
+
+      ws.onmessage = (ev) => { //sunucudan mesaj geldiğinde
+        append(`[recv] ${ev.data}`); //mesajı log a at
+      };
+
+      ws.onclose = () => { //bağlantı kapatıldıgında
+        append("[close]"); //log a close mesajı ekleme
+        setConnected(false); //connected false
+        wsRef.current = null; //wsRef i null a getiriyoruz.
+      };
+
+      ws.onerror = (e) => { //hata durumları
+        append("[error] " + String(e));
+      };
+    } catch (e) {
+      append("[connect error] " + String(e));
+    }
+  };
+
+  const disconnect = () => { //bağlantı kapatma
+    wsRef.current?.close(); //bağlantıdan çıkma
+    wsRef.current = null; //null yapıyoruz
+    setConnected(false); //connected stateini false ypaıyoruz
+  };
+
+  //şifre çözme
+  const sendEncrypted = () => {
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+      append("[warn] WS açık değil");
+      return;
+    }
+
+    const cipherText = cipher.current.encrypt(plain, key);
+    const out: OutMsg = {
+      type: "chat",
+      room,
+      alg: "caesar",
+      cipher: cipherText,
+    };
+    wsRef.current.send(JSON.stringify(out));
+    append(`[send] ${JSON.stringify(out)}`);
+    setPlain(""); 
+  };
+
+  const append=(line:string)=>{
+    setLog((prev)=>[...prev,line]) //log a veri ekleyen yardımcı
+  }
+
+  useEffect(() => {
+    return () => {
+      try {
+        wsRef.current?.close();
+      } catch {}
+    };
+  }, []);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div style={{ fontFamily: "monospace", padding: 12 }}>
+      <h1>Basit E2E: Şifrele & Gönder</h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
+        <label>
+          WS URL:
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            style={{ width: "100%" }}
+          />
+        </label>
+
+        <label>
+          Oda:
+          <input
+            value={room}
+            onChange={(e) => setRoom(e.target.value)}
+            style={{ width: "100%" }}
+          />
+        </label>
+
+        <label>
+          Algoritma:
+          <select value="caesar" disabled style={{ width: "100%" }}>
+            <option value="caesar">caesar</option>
+          </select>
+        </label>
+
+        <label>
+          Key (sayı):
+          <input
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            style={{ width: "100%" }}
+          />
+        </label>
+
+        <label>
+          Mesaj (plain):
+          <input
+            value={plain}
+            onChange={(e) => setPlain(e.target.value)}
+            style={{ width: "100%" }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") sendEncrypted();
+            }}
+          />
+        </label>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          {!connected ? (
+            <button onClick={connect}>Bağlan</button>
+          ) : (
+            <button onClick={disconnect}>Kopar</button>
+          )}
+          <button onClick={sendEncrypted} disabled={!connected || !plain.trim()}>
+            Gönder (şifreli)
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        <div>
+          <div>Durum: {connected ? "Açık" : "Kapalı"}</div>
+        </div>
+
+        <div>
+          <div>Log:</div>
+          <pre
+            style={{
+              background: "#111",
+              color: "#ddd",
+              padding: 8,
+              minHeight: 160,
+              whiteSpace: "pre-wrap",
+            }}
+          >
+            {log.join("\n")}
+          </pre>
+        </div>
+      </div>
     </div>
   );
 }

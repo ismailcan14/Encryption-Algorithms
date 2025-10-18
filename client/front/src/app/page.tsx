@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CaesarCipher } from "../../../cryption/algorithms/Caesar";
+import { VigenereCipher } from "../../../cryption/algorithms/Vigenere"; //Vigenere sınıfını da projeye dahil ediyoruz (çoklu algoritma desteği için)
 
 type OutMsg = { //mesaj yollarken ki tipimiz
   type: string;  //type alanı zorunlu
@@ -11,6 +12,8 @@ type OutMsg = { //mesaj yollarken ki tipimiz
   [k: string]: any; //vereceğimiz key alanı
 };
 
+type Algo = "caesar" | "vigenere"; //kullanacağımız algoritma isimleri (select kutusunda seçim yapacağız)
+
 export default function Page()
 {
 const [connected,setConnected]=useState(false);
@@ -18,13 +21,15 @@ const [room,setRoom]=useState("demo-1");//katılacagın oda id si
 const [plain,setPlain]=useState("");//düz metin
 const [url,setUrl]=useState("ws://127.0.0.1:8765"); //sunucu adresi
 const [key,setKey]=useState("3"); //algoritmada kullanacagımız key
-const [log,setLog]=useState<String[]>([]); //ekranda gösterilecek metinlerin dizisi
+const [log,setLog]=useState<string[]>([]); //ekranda gösterilecek metinlerin dizisi
+const [algo,setAlgo]=useState<Algo>("caesar"); //seçili algoritmayı saklıyoruz (varsayılan caesar)
 
   const wsRef=useRef<WebSocket|null>(null);
   //burada React ın useRef hookunu kullandık çünkü WebSocket ten 1 adet nesne olusturuyoruz ve sayfa yenıden render edilse bile
   //nesnemiz korunuyor. wsRef.current ile de değerni oluşturabiliyoruz.
   //kısaca diyoruz ki wsRef in WebSocket türünde bir referansı var ancak şuan boş. wsRef.curren ileri WS nesnesi tutacak.
-const cipher=useRef(new CaesarCipher());
+const caesarRef=useRef(new CaesarCipher()); //CaesarCipher sınıfından bir nesne oluşturduk (şifreleme/çözme için)
+const vigenereRef=useRef(new VigenereCipher()); //VigenereCipher sınıfından da bir nesne oluşturduk (çoklu algoritma için)
   //aynı şekilde de burada da CaesarCipher sınıfından bir nesne oluşturduk. bu nesne ile şifreleme ve şifre çözmeyi kullanacağız.
   //useRef() kullandıgımız için nesne proje sonlanana kadar bizimle kalacak.
 
@@ -74,20 +79,43 @@ const cipher=useRef(new CaesarCipher());
       return;
     }
 
-    const cipherText = cipher.current.encrypt(plain, key);
+    let cipherText = ""; //göndereceğimiz şifreli metni burada oluşturacağız
+
+    if (algo === "caesar") { //seçilen algoritma caesar ise sayısal anahtar bekliyoruz
+      const kNum = Number(key); //metin kutusundan gelen değeri sayıya çevir
+      if (!Number.isFinite(kNum)) { //geçerli sayı değilse uyar
+        append("[warn] Key geçersiz (sayı olmalı)");
+        return;
+      }
+      cipherText = caesarRef.current.encrypt(plain, kNum); //caesar ile şifrele
+    } else {
+      // vigenere
+      const kStr = String(key ?? "").trim(); //vigenere için metin anahtar gerekli
+      if (!kStr) { //boş anahtar kabul etmiyoruz
+        append("[warn] Key geçersiz (boş olamaz)");
+        return;
+      }
+      try {
+        cipherText = vigenereRef.current.encrypt(plain, kStr); //vigenere ile şifrele
+      } catch (err) {
+        append("[warn] Vigenere anahtar hatası: " + String((err as Error)?.message ?? err)); //hata mesajını logla
+        return;
+      }
+    }
+
     const out: OutMsg = {
       type: "chat",
       room,
-      alg: "caesar",
+      alg: algo, //mesajda hangi algoritmayı kullandığımızı da belirtiyoruz
       cipher: cipherText,
     };
-    wsRef.current.send(JSON.stringify(out));
-    append(`[send] ${JSON.stringify(out)}`);
-    setPlain(""); 
+    wsRef.current.send(JSON.stringify(out)); //şifreli mesajı gönder
+    append(`[send] ${JSON.stringify(out)}`); //log a yaz
+    setPlain(""); //gönderim sonrası metin kutusunu temizle
   };
 
   const append=(line:string)=>{
-    setLog((prev)=>[...prev,line]) //log a veri ekleyen yardımcı
+    setLog((prev)=>[...prev,line]) 
   }
 
   useEffect(() => {
@@ -123,16 +151,22 @@ const cipher=useRef(new CaesarCipher());
 
         <label>
           Algoritma:
-          <select value="caesar" disabled style={{ width: "100%" }}>
+          <select
+            value={algo}
+            onChange={(e) => setAlgo(e.target.value as Algo)} 
+            style={{ width: "100%" }}
+          >
             <option value="caesar">caesar</option>
+            <option value="vigenere">vigenere</option>
           </select>
         </label>
 
         <label>
-          Key (sayı):
+          Key {algo === "caesar" ? "(sayı)" : "(metin)"}:
           <input
             value={key}
             onChange={(e) => setKey(e.target.value)}
+            placeholder={algo === "caesar" ? "Örn: 3" : "Örn: ANAHTAR"} 
             style={{ width: "100%" }}
           />
         </label>
@@ -144,7 +178,7 @@ const cipher=useRef(new CaesarCipher());
             onChange={(e) => setPlain(e.target.value)}
             style={{ width: "100%" }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") sendEncrypted();
+              if (e.key === "Enter") sendEncrypted(); 
             }}
           />
         </label>

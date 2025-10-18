@@ -1,3 +1,8 @@
+#WireShark : 
+#websocket.opcode == 1 //sadece chat mesajlarını gösterecek (ping/pong veya handshake hariç).
+#tcp.port == 8765 //bu porta gelen tüm istekleri gösterir.
+#tcp.port == 8765 && websocket //SADECE PORTTAKİ WS MESAJLARI GÖRÜNÜR.
+
 import asyncio
 import json
 import websockets
@@ -23,13 +28,14 @@ async def handler(ws: websockets.WebSocketServerProtocol):
             if msg.get("type") == "join": # gelen mesaj isteği tipi join ise 
                 room_id = msg.get("room") #room_id değişkenine mesajdaki room keyinin valuesu atılır.
                 if not room_id: #eğer "room" keyi boş ise room_id de boş olur ve istemciye hata mesajı yollarız.
-                    await ws.send(json.dumps({"type": "system", "ok": False, "error": "room_required"}))
+                    # JSON'u ağda kaçışsız (UTF-8) göndermek için ensure_ascii=False kullanıyoruz
+                    await ws.send(json.dumps({"type": "system", "ok": False, "error": "room_required"}, ensure_ascii=False))
                     continue #bu adımı atlıyoruz
                 ROOMS.setdefault(room_id, set()).add(ws)
                 #room_id=deneme olsun setdefault fonksiyonu ROOMS sözlüğünde deneme adında bir oda var mı diye bakar
                 #eğer deneme odası varsa o odanın mevcut set i döner örneğin {ws1,ws2} ve add.(ws) ile yeni bağlantıyı ekleriz
                 #eğer deneme odası yoksa yeni oda oluşturulur ve boş set e ws eklenir.
-                await ws.send(json.dumps({"type": "system", "ok": True, "room": room_id})) #ws e dönüş mesajı
+                await ws.send(json.dumps({"type": "system", "ok": True, "room": room_id}, ensure_ascii=False)) #ws e dönüş mesajı (UTF-8)
                 continue#adımı atla
 
             #YAYINLAMA
@@ -41,7 +47,8 @@ async def handler(ws: websockets.WebSocketServerProtocol):
 
             for peer in ROOMS[room]: #odadaki tüm ws bağlantılarını peer temsili ile döngüye sokuyoruz
                 try:
-                    await peer.send(json.dumps(msg)) #py sözlüğünü json formatında stringe çevirip bağlantıya(peer) yolluyoruz.
+                    # Ağ üzerinde doğrudan Türkçe karakter görmek için ensure_ascii=False
+                    await peer.send(json.dumps(msg, ensure_ascii=False)) #py sözlüğünü json formatında stringe çevirip bağlantıya(peer) yolluyoruz.
                 except Exception:
                     dead.append(peer) # peer.send(json.dumps(msg) sırasında bir hata oluşursa bağlantı listeye eklenir(ölü)
             for d in dead:
@@ -57,7 +64,7 @@ async def handler(ws: websockets.WebSocketServerProtocol):
 async def main(): #sunucuyu başlatmak için kullandıgımız ana fonksiyon
     host, port = "0.0.0.0", 8765 #sunucu nerede calısacak ?
     print(f"WS transfer listening at ws://{host}:{port}") #konsol bilgilendirme mesajı
-    async with websockets.serve(handler, host, port, ping_interval=20, ping_timeout=20, close_timeout=5):
+    async with websockets.serve(handler, host, port, ping_interval=120, ping_timeout=120, close_timeout=5):
         #websockets.serve() fonksiyonu bir WebSocket sunucusu oluşturur.
 
         #handler : her yeni bağlantı geldiğinde çalışacak fonksiyon

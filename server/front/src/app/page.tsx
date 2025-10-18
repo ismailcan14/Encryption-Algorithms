@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CaesarCipher } from "../../../cryption/algorithms/Caesar";
+import {VigenereCipher} from "../../../cryption/algorithms/Vigenere"
 
 type OutMsg = {
   type: string;
@@ -11,16 +12,22 @@ type OutMsg = {
   [k: string]: any;
 };
 
+type Algo = "caesar" | "vigenere";
+
 export default function Page() {
   const [url, setUrl] = useState("ws://127.0.0.1:8765");
   const [room, setRoom] = useState("demo-1");
+  const [algo, setAlgo] = useState<Algo>("caesar");
   const [key, setKey] = useState("3");
   const [plain, setPlain] = useState("");
   const [connected, setConnected] = useState(false);
   const [log, setLog] = useState<string[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
-  const cipher = useRef(new CaesarCipher());
+  const caesarRef  = useRef(new CaesarCipher());
+  const vigenereRef   = useRef(new VigenereCipher());
+
+  const append = (line: string) => setLog((prev) => [...prev, line]);
 
   const connect = () => {
     if (connected || wsRef.current) return;
@@ -65,25 +72,38 @@ export default function Page() {
       append("[warn] WS açık değil");
       return;
     }
-    const k = Number(key);
-    if (!Number.isFinite(k)) {
-      append("[warn] Key geçersiz (sayı olmalı)");
-      return;
+    let cipherText = "";
+    if (algo === "caesar") {
+      const kNum = Number(key);
+      if (!Number.isFinite(kNum)) {
+        append("[warn] Key geçersiz (sayı olmalı)");
+        return;
+      }
+      cipherText = caesarRef.current.encrypt(plain, kNum);
+    } else {
+      // vigenere
+      const kStr = String(key ?? "").trim();
+      if (!kStr) {
+        append("[warn] Key geçersiz (boş olamaz)");
+        return;
+      }
+      try {
+        cipherText = vigenereRef.current.encrypt(plain, kStr);
+      } catch (err) {
+        append("[warn] Vigenere anahtar hatası: " + String((err as Error)?.message ?? err));
+        return;
+      }
     }
-    const cipherText = cipher.current.encrypt(plain, k);
-    const out: OutMsg = {
+     const out: OutMsg = {
       type: "chat",
       room,
-      alg: "caesar",
+      alg: algo,
       cipher: cipherText,
     };
+
     wsRef.current.send(JSON.stringify(out));
     append(`[send] ${JSON.stringify(out)}`);
-    setPlain(""); 
-  };
-
-  const append = (line: string) => {
-    setLog((prev) => [...prev, line]);
+    setPlain("");
   };
 
   useEffect(() => {
@@ -94,7 +114,7 @@ export default function Page() {
     };
   }, []);
 
-  return (
+    return (
     <div style={{ fontFamily: "monospace", padding: 12 }}>
       <h1>Basit E2E: Şifrele & Gönder</h1>
 
@@ -119,16 +139,22 @@ export default function Page() {
 
         <label>
           Algoritma:
-          <select value="caesar" disabled style={{ width: "100%" }}>
+          <select
+            value={algo}
+            onChange={(e) => setAlgo(e.target.value as Algo)}
+            style={{ width: "100%" }}
+          >
             <option value="caesar">caesar</option>
+            <option value="vigenere">vigenere</option>
           </select>
         </label>
 
         <label>
-          Key (sayı):
+          Key {algo === "caesar" ? "(sayı)" : "(metin)"}:
           <input
             value={key}
             onChange={(e) => setKey(e.target.value)}
+            placeholder={algo === "caesar" ? "Örn: 3" : "Örn: ANAHTAR"}
             style={{ width: "100%" }}
           />
         </label>
@@ -154,6 +180,7 @@ export default function Page() {
           <button onClick={sendEncrypted} disabled={!connected || !plain.trim()}>
             Gönder (şifreli)
           </button>
+          
         </div>
 
         <div>

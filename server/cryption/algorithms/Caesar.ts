@@ -3,7 +3,6 @@ import {AZ,idx} from "../alph";
 
 
 
-
 export class CaesarCipher implements Cipher
 {
   readonly name="caesar";

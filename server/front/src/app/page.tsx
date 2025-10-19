@@ -5,6 +5,7 @@ import { CaesarCipher } from "../../../cryption/algorithms/Caesar";
 import { VigenereCipher } from "../../../cryption/algorithms/Vigenere"; //Vigenere sınıfını da projeye dahil ediyoruz (çoklu algoritma desteği için)
 import { SubstitutionCipher } from "../../../cryption/algorithms/Substitution"; 
 import { AffineCipher } from "../../../cryption/algorithms/Affine";
+import { PlayfairCipher } from "../../../cryption/algorithms/Playfair";
 
 
 // Substitution eklemeyle birlikte sade registry kullanacağız 
@@ -17,7 +18,7 @@ type OutMsg = { //mesaj yollarken ki tipimiz
   [k: string]: any; //vereceğimiz key alanı
 };
 
-type Algo = "caesar" | "vigenere" | "substitution" | "affine"; //kullanacağımız algoritma isimleri (select kutusunda seçim yapacağız) 
+type Algo = "caesar" | "vigenere" | "substitution" | "affine" | "playfair"; //kullanacağımız algoritma isimleri (select kutusunda seçim yapacağız) 
 
 type ChatItem = { id: string; raw: string; cipher: string; alg?: string; room?: string; plain?: string; error?: string }; 
 
@@ -41,6 +42,8 @@ const vigenereRef=useRef(new VigenereCipher()); //VigenereCipher sınıfından d
   //useRef() kullandıgımız için nesne proje sonlanana kadar bizimle kalacak.
 const substRef=useRef(new SubstitutionCipher()); 
 const affineRef = useRef(new AffineCipher());
+const playfairRef = useRef(new PlayfairCipher());
+
 
 
 const parseCaesarKey = (raw: unknown) => { 
@@ -82,6 +85,11 @@ const parseAffineKey = (raw: unknown) => {
   }
   return s; // AffineCipher kendi içinde "a b"/"a,b" parse edecek
 };
+const parsePlayfairKey = (raw: unknown) => {
+  const s = String(raw ?? "").trim();
+  if (!s) throw new Error("Key geçersiz (boş olamaz)");
+  return s; // Playfair kendi normalize ediyor
+};
 
 const registry: Record<
   Algo,
@@ -94,7 +102,7 @@ const registry: Record<
   vigenere: { ref: vigenereRef, parseKey: parseVigenereKey }, 
   substitution: { ref: substRef, parseKey: parseSubstitutionKey }, 
   affine: { ref: affineRef, parseKey: parseAffineKey }, 
-
+  playfair: { ref: playfairRef, parseKey: parsePlayfairKey },
 }; 
 
 
@@ -248,32 +256,34 @@ const toChatItem = (raw: string): ChatItem => {
                 <option value="vigenere">vigenere</option>
                 <option value="substitution">substitution</option>
                 <option value="affine">affine</option>
+                <option value="playfair">playfair</option>
               </select>
             </label>
 
             <label>
-                Key {algo === "caesar"
-                    ? "(sayı)"
-                    : algo === "vigenere"
-                    ? "(metin)"
-                    : algo === "substitution"
-                    ? "(32-harf permütasyon veya JSON map)"
-                    : "(a b) veya (a,b) veya JSON {\"a\":5,\"b\":8}"}:
+              Key {algo === "caesar"
+                ? "(sayı)"
+                : algo === "vigenere"
+                ? "(metin)"
+                : algo === "substitution"
+                ? "(32-harf permütasyon veya JSON map)"
+                : algo === "affine"
+                ? "(a b) veya (a,b) veya JSON {\"a\":5,\"b\":8}"
+                : "(metin)"}:
+
                 <input
                   value={key}
                   onChange={(e) => setKey(e.target.value)}
-                  placeholder={
-                    algo === "caesar"
-                      ? "Örn: 3"
-                      : algo === "vigenere"
-                      ? "Örn: ANAHTAR"
-                      : algo === "substitution"
-                      ? 'Örn (perm): QWERTYÜİOPĞAS...  |  Örn (JSON): {"A":"Q","B":"W",...}'
-                      : 'Örn: 5 8  |  5,8  |  {"a":5,"b":8}'
+                 placeholder={
+                  algo === "caesar" ? "Örn: 3" :
+                  algo === "vigenere" ? "Örn: ANAHTAR" :
+                  algo === "substitution" ? 'Örn (perm): QWERTYÜİOPĞAS...  |  Örn (JSON): {"A":"Q","B":"W",...}' :
+                  algo === "affine" ? 'Örn: 5 8  |  5,8  |  {"a":5,"b":8}' :
+                  "Örn: GIZLIANAHTAR"
                   }
                   style={{ width: "100%" }}
                 />
-            </label>
+              </label>
 
             <label>
               Mesaj (plain):

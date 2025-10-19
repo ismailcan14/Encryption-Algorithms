@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { CaesarCipher } from "../../../cryption/algorithms/Caesar";
 import { VigenereCipher } from "../../../cryption/algorithms/Vigenere"; //Vigenere sınıfını da projeye dahil ediyoruz (çoklu algoritma desteği için)
-import { SubstitutionCipher } from "../../../cryption/algorithms/Substitution"; //***
+import { SubstitutionCipher } from "../../../cryption/algorithms/Substitution"; 
+import { AffineCipher } from "../../../cryption/algorithms/Affine";
 
-// Substitution eklemeyle birlikte sade registry kullanacağız //***
+
+// Substitution eklemeyle birlikte sade registry kullanacağız 
 
 type OutMsg = { //mesaj yollarken ki tipimiz
   type: string;  //type alanı zorunlu
@@ -15,10 +17,9 @@ type OutMsg = { //mesaj yollarken ki tipimiz
   [k: string]: any; //vereceğimiz key alanı
 };
 
-type Algo = "caesar" | "vigenere" | "substitution"; //kullanacağımız algoritma isimleri (select kutusunda seçim yapacağız) //***
+type Algo = "caesar" | "vigenere" | "substitution" | "affine"; //kullanacağımız algoritma isimleri (select kutusunda seçim yapacağız) 
 
-// --- Chat item tipi: gelen ham veri + çıkarılmış cipher + çözülen plain --- //***
-type ChatItem = { id: string; raw: string; cipher: string; alg?: string; room?: string; plain?: string; error?: string }; //***
+type ChatItem = { id: string; raw: string; cipher: string; alg?: string; room?: string; plain?: string; error?: string }; 
 
 export default function Page()
 {
@@ -38,35 +39,50 @@ const caesarRef=useRef(new CaesarCipher()); //CaesarCipher sınıfından bir nes
 const vigenereRef=useRef(new VigenereCipher()); //VigenereCipher sınıfından da bir nesne oluşturduk (çoklu algoritma için)
   //aynı şekilde de burada da CaesarCipher sınıfından bir nesne oluşturduk. bu nesne ile şifreleme ve şifre çözmeyi kullanacağız.
   //useRef() kullandıgımız için nesne proje sonlanana kadar bizimle kalacak.
-const substRef=useRef(new SubstitutionCipher()); //***
+const substRef=useRef(new SubstitutionCipher()); 
+const affineRef = useRef(new AffineCipher());
 
-// ---- Key Parsers (algoritma başına anahtar doğrulama/parsing) ---- //***
-const parseCaesarKey = (raw: unknown) => { //***
-  const k = Number(raw); //***
-  if (!Number.isFinite(k)) throw new Error("Key geçersiz (sayı olmalı)"); //***
-  return k; //***
-}; //***
 
-const parseVigenereKey = (raw: unknown) => { //***
-  const s = String(raw ?? "").trim(); //***
-  if (!s) throw new Error("Key geçersiz (boş olamaz)"); //***
-  return s; //***
-}; //***
+const parseCaesarKey = (raw: unknown) => { 
+  const k = Number(raw);
+  if (!Number.isFinite(k)) throw new Error("Key geçersiz (sayı olmalı)"); 
+  return k; 
+}; 
+
+const parseVigenereKey = (raw: unknown) => { 
+  const s = String(raw ?? "").trim(); 
+  if (!s) throw new Error("Key geçersiz (boş olamaz)"); 
+  return s; 
+}; 
 
 const parseSubstitutionKey = (raw: unknown) => { 
-  const txt = String(raw ?? "").trim(); //***
+  const txt = String(raw ?? "").trim(); 
   if (!txt) throw new Error("Key geçersiz (boş olamaz)"); 
   if (txt.startsWith("{")) {
     try { 
-      return JSON.parse(txt); // SubstitutionCipher, object map'ı zaten doğrular. //***
+      return JSON.parse(txt); // SubstitutionCipher, object map'ı zaten doğrular. 
     } catch { 
-      throw new Error("JSON key parse edilemedi"); //***
+      throw new Error("JSON key parse edilemedi"); 
     } 
   } 
-  return txt; // 32-harf permütasyon string //***
+  return txt; // 32-harf permütasyon string 
 }; 
 
-// ---- Algoritma Registry (tek akış için) ---- //***
+const parseAffineKey = (raw: unknown) => {
+  // "a b", "a,b" veya JSON {"a":5,"b":8}
+  if (typeof raw === "object" && raw !== null) return raw;
+  const s = String(raw ?? "").trim();
+  if (!s) throw new Error("Key geçersiz (boş olamaz)");
+  if (s.startsWith("{")) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      throw new Error("Affine JSON key parse edilemedi");
+    }
+  }
+  return s; // AffineCipher kendi içinde "a b"/"a,b" parse edecek
+};
+
 const registry: Record<
   Algo,
   {
@@ -77,22 +93,23 @@ const registry: Record<
   caesar: { ref: caesarRef, parseKey: parseCaesarKey },
   vigenere: { ref: vigenereRef, parseKey: parseVigenereKey }, 
   substitution: { ref: substRef, parseKey: parseSubstitutionKey }, 
+  affine: { ref: affineRef, parseKey: parseAffineKey }, 
+
 }; 
 
-// --- Chat listesi (gelen mesajlar) --- //***
-const [messages, setMessages] = useState<ChatItem[]>([]); //***
 
-// --- Gelen ws mesajını ChatItem'a dönüştür --- //***
-const toChatItem = (raw: string): ChatItem => { //***
-  try { //***
-    const obj = JSON.parse(raw); //***
-    const cipher = typeof obj.cipher === "string" ? obj.cipher : raw; //***
-    return { id: crypto.randomUUID(), raw, cipher, alg: obj.alg, room: obj.room }; //***
-  } catch { //***
-    // JSON değilse raw = cipher kabul //***
-    return { id: crypto.randomUUID(), raw, cipher: raw }; //***
-  } //***
-}; //***
+const [messages, setMessages] = useState<ChatItem[]>([]); 
+
+const toChatItem = (raw: string): ChatItem => { 
+  try { 
+    const obj = JSON.parse(raw); 
+    const cipher = typeof obj.cipher === "string" ? obj.cipher : raw; 
+    return { id: crypto.randomUUID(), raw, cipher, alg: obj.alg, room: obj.room }; 
+  } catch { 
+    // JSON değilse raw = cipher kabul 
+    return { id: crypto.randomUUID(), raw, cipher: raw }; 
+  } 
+}; 
 
   const connect = () => { //bağlan butonuna basınca çalışacak fonksiyon
     if (connected || wsRef.current) return; //bağlıysan veya ws nesnesi varsa atla!
@@ -141,49 +158,47 @@ const toChatItem = (raw: string): ChatItem => { //***
       return;
     }
 
-    // — Sade tek akış: parse → encrypt → gönder — //***
-    try { //***
-      const { ref, parseKey } = registry[algo]; //***
-      const parsedKey = parseKey(key); //***
-      const cipherText = ref.current.encrypt(plain, parsedKey); //***
+    try { 
+      const { ref, parseKey } = registry[algo]; 
+      const parsedKey = parseKey(key); 
+      const cipherText = ref.current.encrypt(plain, parsedKey); 
 
-      const out: OutMsg = { //***
-        type: "chat", //***
-        room, //***
+      const out: OutMsg = { 
+        type: "chat",
+        room, 
         alg: algo, //mesajda hangi algoritmayı kullandığımızı da belirtiyoruz
-        cipher: cipherText, //***
-      }; //***
+        cipher: cipherText, 
+      }; 
       wsRef.current.send(JSON.stringify(out)); //şifreli mesajı gönder
       append(`[send] ${JSON.stringify(out)}`); //log a yaz
       setPlain(""); //gönderim sonrası metin kutusunu temizle
-    } catch (err) { //***
-      const msg = err instanceof Error ? err.message : String(err); //***
-      append("[warn] " + msg); //***
-    } //***
+    } catch (err) { 
+      const msg = err instanceof Error ? err.message : String(err); 
+      append("[warn] " + msg);
+    } 
   };
 
-  // --- Tek bir mesajı çöz (seçili algo + key ile) --- //***
-  const decryptOne = (id: string) => { //***
-    try { //***
-      const { ref, parseKey } = registry[algo]; //***
-      const parsedKey = parseKey(key); //***
-      setMessages((prev) => //***
-        prev.map((m) => { //***
-          if (m.id !== id) return m; //***
-          try { //***
-            const plain = ref.current.decrypt(m.cipher, parsedKey); //***
-            return { ...m, plain, error: undefined }; //***
-          } catch (e) { //***
-            const emsg = e instanceof Error ? e.message : String(e); //***
-            return { ...m, error: emsg }; //***
-          } //***
-        }) //***
-      ); //***
-    } catch (e) { //***
-      const emsg = e instanceof Error ? e.message : String(e); //***
-      append("[warn] " + emsg); //***
-    } //***
-  }; //***
+  const decryptOne = (id: string) => { 
+    try { 
+      const { ref, parseKey } = registry[algo]; 
+      const parsedKey = parseKey(key); 
+      setMessages((prev) => 
+        prev.map((m) => { 
+          if (m.id !== id) return m; 
+          try { 
+            const plain = ref.current.decrypt(m.cipher, parsedKey); 
+            return { ...m, plain, error: undefined }; 
+          } catch (e) { 
+            const emsg = e instanceof Error ? e.message : String(e); 
+            return { ...m, error: emsg }; 
+          } 
+        }) 
+      ); 
+    } catch (e) { 
+      const emsg = e instanceof Error ? e.message : String(e); 
+      append("[warn] " + emsg);
+    }
+  }; 
 
   const append=(line:string)=>{
     setLog((prev)=>[...prev,line]) 
@@ -201,8 +216,8 @@ const toChatItem = (raw: string): ChatItem => { //***
     <div style={{ fontFamily: "monospace", padding: 12 }}>
       <h1>Basit E2E: Şifrele & Gönder</h1>
 
-      <div style={{ display: "grid", gap: 8, maxWidth: 920 }}> {/* genişlik artırıldı //*** */}
-        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr", alignItems: "start" }}> {/* iki kolonlu düzen //*** */}
+      <div style={{ display: "grid", gap: 8, maxWidth: 920 }}> 
+        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr", alignItems: "start" }}> 
           <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
             <label>
               WS URL:
@@ -231,18 +246,33 @@ const toChatItem = (raw: string): ChatItem => { //***
               >
                 <option value="caesar">caesar</option>
                 <option value="vigenere">vigenere</option>
-                <option value="substitution">substitution</option> {/* *** */}
+                <option value="substitution">substitution</option>
+                <option value="affine">affine</option>
               </select>
             </label>
 
             <label>
-              Key {algo === "caesar" ? "(sayı)" : algo === "vigenere" ? "(metin)" : "(32-harf permütasyon veya JSON map)"}: {/* *** */}
-              <input
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                placeholder={algo === "caesar" ? "Örn: 3" : algo === "vigenere" ? "Örn: ANAHTAR" : 'Örn (perm): QWERTYÜİOPĞAS...  |  Örn (JSON): {"A":"Q","B":"W",...}'} //***
-                style={{ width: "100%" }}
-              />
+                Key {algo === "caesar"
+                    ? "(sayı)"
+                    : algo === "vigenere"
+                    ? "(metin)"
+                    : algo === "substitution"
+                    ? "(32-harf permütasyon veya JSON map)"
+                    : "(a b) veya (a,b) veya JSON {\"a\":5,\"b\":8}"}:
+                <input
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  placeholder={
+                    algo === "caesar"
+                      ? "Örn: 3"
+                      : algo === "vigenere"
+                      ? "Örn: ANAHTAR"
+                      : algo === "substitution"
+                      ? 'Örn (perm): QWERTYÜİOPĞAS...  |  Örn (JSON): {"A":"Q","B":"W",...}'
+                      : 'Örn: 5 8  |  5,8  |  {"a":5,"b":8}'
+                  }
+                  style={{ width: "100%" }}
+                />
             </label>
 
             <label>
@@ -288,9 +318,8 @@ const toChatItem = (raw: string): ChatItem => { //***
             </div>
           </div>
 
-          {/* Sağ kolon: Chat listesi */} {/* *** */}
-          <div style={{ display: "grid", gap: 8 }}> {/* *** */}
-            <div>Gelen Mesajlar (üstte en yeni):</div> {/* *** */}
+          <div style={{ display: "grid", gap: 8 }}> 
+            <div>Gelen Mesajlar (üstte en yeni):</div> 
             <div
               style={{
                 border: "1px solid #333",

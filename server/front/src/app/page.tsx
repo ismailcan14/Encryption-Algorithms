@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { CaesarCipher } from "../../../cryption/algorithms/Caesar";
 import { VigenereCipher } from "../../../cryption/algorithms/Vigenere"; //Vigenere sınıfını da projeye dahil ediyoruz (çoklu algoritma desteği için)
 import { SubstitutionCipher } from "../../../cryption/algorithms/Substitution"; 
+import { AffineCipher } from "../../../cryption/algorithms/Affine";
+
 
 // Substitution eklemeyle birlikte sade registry kullanacağız 
 
@@ -15,7 +17,7 @@ type OutMsg = { //mesaj yollarken ki tipimiz
   [k: string]: any; //vereceğimiz key alanı
 };
 
-type Algo = "caesar" | "vigenere" | "substitution"; //kullanacağımız algoritma isimleri (select kutusunda seçim yapacağız) 
+type Algo = "caesar" | "vigenere" | "substitution" | "affine"; //kullanacağımız algoritma isimleri (select kutusunda seçim yapacağız) 
 
 type ChatItem = { id: string; raw: string; cipher: string; alg?: string; room?: string; plain?: string; error?: string }; 
 
@@ -38,6 +40,8 @@ const vigenereRef=useRef(new VigenereCipher()); //VigenereCipher sınıfından d
   //aynı şekilde de burada da CaesarCipher sınıfından bir nesne oluşturduk. bu nesne ile şifreleme ve şifre çözmeyi kullanacağız.
   //useRef() kullandıgımız için nesne proje sonlanana kadar bizimle kalacak.
 const substRef=useRef(new SubstitutionCipher()); 
+const affineRef = useRef(new AffineCipher());
+
 
 const parseCaesarKey = (raw: unknown) => { 
   const k = Number(raw);
@@ -64,6 +68,21 @@ const parseSubstitutionKey = (raw: unknown) => {
   return txt; // 32-harf permütasyon string 
 }; 
 
+const parseAffineKey = (raw: unknown) => {
+  // "a b", "a,b" veya JSON {"a":5,"b":8}
+  if (typeof raw === "object" && raw !== null) return raw;
+  const s = String(raw ?? "").trim();
+  if (!s) throw new Error("Key geçersiz (boş olamaz)");
+  if (s.startsWith("{")) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      throw new Error("Affine JSON key parse edilemedi");
+    }
+  }
+  return s; // AffineCipher kendi içinde "a b"/"a,b" parse edecek
+};
+
 const registry: Record<
   Algo,
   {
@@ -74,6 +93,8 @@ const registry: Record<
   caesar: { ref: caesarRef, parseKey: parseCaesarKey },
   vigenere: { ref: vigenereRef, parseKey: parseVigenereKey }, 
   substitution: { ref: substRef, parseKey: parseSubstitutionKey }, 
+  affine: { ref: affineRef, parseKey: parseAffineKey }, 
+
 }; 
 
 
@@ -226,17 +247,32 @@ const toChatItem = (raw: string): ChatItem => {
                 <option value="caesar">caesar</option>
                 <option value="vigenere">vigenere</option>
                 <option value="substitution">substitution</option>
+                <option value="affine">affine</option>
               </select>
             </label>
 
             <label>
-              Key {algo === "caesar" ? "(sayı)" : algo === "vigenere" ? "(metin)" : "(32-harf permütasyon veya JSON map)"}: {/* *** */}
-              <input
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                placeholder={algo === "caesar" ? "Örn: 3" : algo === "vigenere" ? "Örn: ANAHTAR" : 'Örn (perm): QWERTYÜİOPĞAS...  |  Örn (JSON): {"A":"Q","B":"W",...}'} //***
-                style={{ width: "100%" }}
-              />
+                Key {algo === "caesar"
+                    ? "(sayı)"
+                    : algo === "vigenere"
+                    ? "(metin)"
+                    : algo === "substitution"
+                    ? "(32-harf permütasyon veya JSON map)"
+                    : "(a b) veya (a,b) veya JSON {\"a\":5,\"b\":8}"}:
+                <input
+                  value={key}
+                  onChange={(e) => setKey(e.target.value)}
+                  placeholder={
+                    algo === "caesar"
+                      ? "Örn: 3"
+                      : algo === "vigenere"
+                      ? "Örn: ANAHTAR"
+                      : algo === "substitution"
+                      ? 'Örn (perm): QWERTYÜİOPĞAS...  |  Örn (JSON): {"A":"Q","B":"W",...}'
+                      : 'Örn: 5 8  |  5,8  |  {"a":5,"b":8}'
+                  }
+                  style={{ width: "100%" }}
+                />
             </label>
 
             <label>

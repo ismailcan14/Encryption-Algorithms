@@ -43,3 +43,14 @@ export const parsePlayfairKey = (raw: string): string => {
   if (!s) throw new Error("Playfair: key boş olamaz");
   return s;
 };
+
+export const parseRailFenceKey = (raw: string): number => {
+  const n = Number(String(raw ?? "").trim());
+  if (!Number.isFinite(n) || !Number.isInteger(n)) {
+    throw new Error("Rail Fence: key tamsayı olmalı");
+  }
+  if (n < 2) {
+    throw new Error("Rail Fence: key en az 2 olmalı");
+  }
+  return n;
+};

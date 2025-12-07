@@ -1,6 +1,6 @@
 import type { Cipher } from "../../../cryption/type";
 
-export type AlgoId = "caesar" | "vigenere" | "substitution" | "affine" | "playfair";
+export type AlgoId = "caesar" | "vigenere" | "substitution" | "affine" | "playfair" | "railfence";
 
 export type OutMsg = {
   type: string;

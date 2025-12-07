@@ -3,6 +3,7 @@ import { VigenereCipher } from "../../../cryption/algorithms/Vigenere";
 import { SubstitutionCipher } from "../../../cryption/algorithms/Substitution";
 import { AffineCipher } from "../../../cryption/algorithms/Affine";
 import { PlayfairCipher } from "../../../cryption/algorithms/Playfair";
+import { RailFenceCipher } from "../../../cryption/algorithms/RailFence";
 
 import type { AlgoConfig, AlgoId } from "./types";
 import {
@@ -11,6 +12,7 @@ import {
   parsePlayfairKey,
   parseSubstitutionKey,
   parseVigenereKey,
+  parseRailFenceKey,
 } from "./keyParsers";
 
 const CAESAR = new CaesarCipher();
@@ -18,6 +20,7 @@ const VIGENERE = new VigenereCipher();
 const SUBSTITUTION = new SubstitutionCipher();
 const AFFINE = new AffineCipher();
 const PLAYFAIR = new PlayfairCipher();
+const RAILFENCE = new RailFenceCipher();
 
 export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
   caesar: {
@@ -85,6 +88,19 @@ export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
       helpText: "Boş olamaz, metin olarak kullanılır.",
       defaultValue: "GIZLIANAHTAR",
       parse: parsePlayfairKey,
+    },
+  },
+  railfence: {
+    id: "railfence",
+    label: "Rail Fence",
+    cipher: RAILFENCE,
+    key: {
+      required: true,
+      label: "Key (ray sayısı)",
+      placeholder: "Örn: 3",
+      helpText: "En az 2, tamsayı ray sayısı.",
+      defaultValue: "3",
+      parse: parseRailFenceKey,
     },
   },
 };

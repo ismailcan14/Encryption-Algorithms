@@ -225,7 +225,6 @@ export default function Page() {
               </pre>
             </div>
           </div>
-
           <MessagesPanel messages={messages} onDecrypt={decryptOne} />
         </div>
       </div>

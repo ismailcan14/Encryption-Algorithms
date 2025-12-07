@@ -65,3 +65,11 @@ export const parseRouteKey = (raw: string): number => {
   }
   return n;
 };
+
+export const parseColumnarKey = (raw: string): string => {
+  const s = String(raw ?? "").trim();
+  if (!s) {
+    throw new Error("Columnar: key boş olamaz");
+  }
+  return s; 
+};

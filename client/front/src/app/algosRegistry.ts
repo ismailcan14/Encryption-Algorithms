@@ -5,6 +5,7 @@ import { AffineCipher } from "../../../cryption/algorithms/Affine";
 import { PlayfairCipher } from "../../../cryption/algorithms/Playfair";
 import { RailFenceCipher } from "../../../cryption/algorithms/RailFence";
 import { RouteCipher } from "../../../cryption/algorithms/RouteCipher";
+import { ColumnarTranspositionCipher } from "../../../cryption/algorithms/ColumnarTransposition";
 
 import type { AlgoConfig, AlgoId } from "./types";
 import {
@@ -15,6 +16,7 @@ import {
   parseVigenereKey,
   parseRailFenceKey,
   parseRouteKey,
+  parseColumnarKey,
 } from "./keyParsers";
 
 const CAESAR = new CaesarCipher();
@@ -24,6 +26,7 @@ const AFFINE = new AffineCipher();
 const PLAYFAIR = new PlayfairCipher();
 const RAILFENCE = new RailFenceCipher();
 const ROUTE = new RouteCipher();
+const COLUMNAR = new ColumnarTranspositionCipher();
 
 export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
   caesar: {
@@ -117,6 +120,19 @@ export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
       helpText: "En az 2, tamsayı sütun sayısı.",
       defaultValue: "4",
       parse: parseRouteKey,
+    },
+  },
+  columnar: {
+    id: "columnar",
+    label: "Columnar Transposition",
+    cipher: COLUMNAR,
+    key: {
+      required: true,
+      label: "Key (kelime)",
+      placeholder: "Örn: ANAHTAR",
+      helpText: "En az 2 karakterli bir kelime. Harf sırasına göre sütunlar karılır.",
+      defaultValue: "ANAHTAR",
+      parse: parseColumnarKey,
     },
   },
 };

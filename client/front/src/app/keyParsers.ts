@@ -54,3 +54,14 @@ export const parseRailFenceKey = (raw: string): number => {
   }
   return n;
 };
+
+export const parseRouteKey = (raw: string): number => {
+  const n = Number(String(raw ?? "").trim());
+  if (!Number.isFinite(n) || !Number.isInteger(n)) {
+    throw new Error("Route: key tamsayı olmalı");
+  }
+  if (n < 2) {
+    throw new Error("Route: key en az 2 olmalı");
+  }
+  return n;
+};

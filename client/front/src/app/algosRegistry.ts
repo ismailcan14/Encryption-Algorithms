@@ -6,6 +6,7 @@ import { PlayfairCipher } from "../../../cryption/algorithms/Playfair";
 import { RailFenceCipher } from "../../../cryption/algorithms/RailFence";
 import { RouteCipher } from "../../../cryption/algorithms/RouteCipher";
 import { ColumnarTranspositionCipher } from "../../../cryption/algorithms/ColumnarTransposition";
+import { PolybiusCipher } from "../../../cryption/algorithms/Polybius";
 
 import type { AlgoConfig, AlgoId } from "./types";
 import {
@@ -17,6 +18,7 @@ import {
   parseRailFenceKey,
   parseRouteKey,
   parseColumnarKey,
+  parsePolybiusKey,
 } from "./keyParsers";
 
 const CAESAR = new CaesarCipher();
@@ -27,6 +29,7 @@ const PLAYFAIR = new PlayfairCipher();
 const RAILFENCE = new RailFenceCipher();
 const ROUTE = new RouteCipher();
 const COLUMNAR = new ColumnarTranspositionCipher();
+const POLYBIUS = new PolybiusCipher();
 
 export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
   caesar: {
@@ -133,6 +136,20 @@ export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
       helpText: "En az 2 karakterli bir kelime. Harf sırasına göre sütunlar karılır.",
       defaultValue: "ANAHTAR",
       parse: parseColumnarKey,
+    },
+  },
+   polybius: {
+    id: "polybius",
+    label: "Polybius",
+    cipher: POLYBIUS,
+    key: {
+      required: true, 
+      label: "Key (opsiyonel kelime)",
+      placeholder: "Örn: GIZLI (boş da bırakılabilir)",
+      helpText:
+        "İsteğe bağlı anahtar. Boş ise AZ sırasına göre 4x8 tablo kullanılır.",
+      defaultValue: "",
+      parse: parsePolybiusKey,
     },
   },
 };

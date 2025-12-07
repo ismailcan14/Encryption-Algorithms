@@ -73,3 +73,10 @@ export const parseColumnarKey = (raw: string): string => {
   }
   return s; 
 };
+
+
+export const parsePolybiusKey = (raw: string): string => {
+  const s = String(raw ?? "").trim();
+  return s; 
+};
+

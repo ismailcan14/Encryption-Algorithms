@@ -7,6 +7,8 @@ import { RailFenceCipher } from "../../../cryption/algorithms/RailFence";
 import { RouteCipher } from "../../../cryption/algorithms/RouteCipher";
 import { ColumnarTranspositionCipher } from "../../../cryption/algorithms/ColumnarTransposition";
 import { PolybiusCipher } from "../../../cryption/algorithms/Polybius";
+import { PigpenCipher } from "../../../cryption/algorithms/Pigpen";
+
 
 import type { AlgoConfig, AlgoId } from "./types";
 import {
@@ -19,6 +21,7 @@ import {
   parseRouteKey,
   parseColumnarKey,
   parsePolybiusKey,
+  parsePigpenKey,
 } from "./keyParsers";
 
 const CAESAR = new CaesarCipher();
@@ -30,6 +33,7 @@ const RAILFENCE = new RailFenceCipher();
 const ROUTE = new RouteCipher();
 const COLUMNAR = new ColumnarTranspositionCipher();
 const POLYBIUS = new PolybiusCipher();
+const PIGPEN = new PigpenCipher();
 
 export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
   caesar: {
@@ -150,6 +154,19 @@ export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
         "İsteğe bağlı anahtar. Boş ise AZ sırasına göre 4x8 tablo kullanılır.",
       defaultValue: "",
       parse: parsePolybiusKey,
+    },
+  },
+    pigpen: {
+    id: "pigpen",
+    label: "PigPen",
+    cipher: PIGPEN,
+    key: {
+      required: false,
+      label: "Key (kullanılmıyor)",
+      placeholder: "",
+      helpText: "PigPen klasik, keysiz görsel substitution olarak kullanılıyor.",
+      defaultValue: "",
+      parse: parsePigpenKey,
     },
   },
 };

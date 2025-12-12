@@ -1,5 +1,5 @@
 import type { ChatItem } from "./types";
-
+import { PigpenText } from "./PigpenText";
 type MessagesPanelProps = {
   messages: ChatItem[];
   onDecrypt: (id: string) => void;
@@ -61,7 +61,11 @@ export function MessagesPanel({ messages, onDecrypt }: MessagesPanelProps) {
                 }}
                 title={m.raw}
               >
-                {m.cipher}
+                {m.alg === "pigpen" ? (
+                  <PigpenText text={m.cipher} />
+                ) : (
+                  m.cipher
+                )}
               </div>
 
               <div

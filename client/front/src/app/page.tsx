@@ -6,6 +6,7 @@ import { ALGO_CONFIGS } from "./algosRegistry";
 import { KeyInput } from "./KeyInput";
 import { toChatItem } from "./chatUtils";
 import { MessagesPanel } from "./MessagesPanel";
+import { PigpenLegend } from "./PigpenLegend";
 
 export default function Page() {
   const [connected, setConnected] = useState(false);
@@ -16,6 +17,7 @@ export default function Page() {
   const [key, setKey] = useState(ALGO_CONFIGS["caesar"].key.defaultValue);
   const [log, setLog] = useState<string[]>([]);
   const [messages, setMessages] = useState<ChatItem[]>([]);
+  
 
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -122,8 +124,7 @@ export default function Page() {
       })
     );
   };
-
-  useEffect(() => {
+useEffect(() => {
     return () => {
       try {
         wsRef.current?.close();
@@ -225,9 +226,16 @@ export default function Page() {
               </pre>
             </div>
           </div>
+
           <MessagesPanel messages={messages} onDecrypt={decryptOne} />
         </div>
       </div>
+
+-      {algo === "pigpen" && (
+        <div style={{ marginTop: 16, maxWidth: 920 }}>
+          <PigpenLegend />
+        </div>
+      )}
     </div>
   );
 }

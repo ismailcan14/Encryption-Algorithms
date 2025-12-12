@@ -80,3 +80,7 @@ export const parsePolybiusKey = (raw: string): string => {
   return s; 
 };
 
+export const parsePigpenKey = (raw: string): null => {
+  return null;
+};
+

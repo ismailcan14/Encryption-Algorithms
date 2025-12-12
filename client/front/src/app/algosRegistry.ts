@@ -8,6 +8,7 @@ import { RouteCipher } from "../../../cryption/algorithms/RouteCipher";
 import { ColumnarTranspositionCipher } from "../../../cryption/algorithms/ColumnarTransposition";
 import { PolybiusCipher } from "../../../cryption/algorithms/Polybius";
 import { PigpenCipher } from "../../../cryption/algorithms/Pigpen";
+import { HillCipher } from "../../../cryption/algorithms/Hill";
 
 
 import type { AlgoConfig, AlgoId } from "./types";
@@ -22,6 +23,8 @@ import {
   parseColumnarKey,
   parsePolybiusKey,
   parsePigpenKey,
+  parseHillKey,
+
 } from "./keyParsers";
 
 const CAESAR = new CaesarCipher();
@@ -34,6 +37,8 @@ const ROUTE = new RouteCipher();
 const COLUMNAR = new ColumnarTranspositionCipher();
 const POLYBIUS = new PolybiusCipher();
 const PIGPEN = new PigpenCipher();
+const HILL = new HillCipher();
+
 
 export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
   caesar: {
@@ -169,4 +174,18 @@ export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
       parse: parsePigpenKey,
     },
   },
+  hill: {
+  id: "hill",
+  label: "Hill (2x2)",
+  cipher: HILL,
+  key: {
+    required: true,
+    label: "Key (2x2 matris)",
+    placeholder: 'Örn: 3 3 2 5  |  [3,3,2,5]  |  [[3,3],[2,5]]',
+    helpText:
+      "Determinantın 32 ile aralarında asal olması gerekir (örnek: [[3,3],[2,5]]).",
+    defaultValue: "3 3 2 5",
+    parse: parseHillKey,
+  },
+},
 };

@@ -84,3 +84,18 @@ export const parsePigpenKey = (raw: string): null => {
   return null;
 };
 
+export const parseHillKey = (raw: string): unknown => {
+  const s = String(raw ?? "").trim();
+  if (!s) throw new Error("Hill: key boş olamaz");
+
+  if (s.startsWith("[") || s.startsWith("{")) {
+    try {
+      return JSON.parse(s);
+    } catch {
+      throw new Error("Hill: JSON key parse edilemedi");
+    }
+  }
+
+  return s;
+};
+

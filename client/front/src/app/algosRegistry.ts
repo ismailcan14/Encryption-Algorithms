@@ -9,7 +9,7 @@ import { ColumnarTranspositionCipher } from "../../../cryption/algorithms/Column
 import { PolybiusCipher } from "../../../cryption/algorithms/Polybius";
 import { PigpenCipher } from "../../../cryption/algorithms/Pigpen";
 import { HillCipher } from "../../../cryption/algorithms/Hill";
-
+import { DesLibCipher } from "../../../cryption/algorithms/DesLib";
 
 import type { AlgoConfig, AlgoId } from "./types";
 import {
@@ -24,7 +24,7 @@ import {
   parsePolybiusKey,
   parsePigpenKey,
   parseHillKey,
-
+  parseDesLibKey,
 } from "./keyParsers";
 
 const CAESAR = new CaesarCipher();
@@ -38,6 +38,7 @@ const COLUMNAR = new ColumnarTranspositionCipher();
 const POLYBIUS = new PolybiusCipher();
 const PIGPEN = new PigpenCipher();
 const HILL = new HillCipher();
+const DES_LIB = new DesLibCipher();
 
 
 export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
@@ -188,4 +189,18 @@ export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
     parse: parseHillKey,
   },
 },
+  des_lib: {
+    id: "des_lib",
+    label: "DES (lib)",
+    cipher: DES_LIB,
+    key: {
+      required: true,
+      label: "Key (8 char veya 16 hex)",
+      placeholder: "Örn: 12345678  |  133457799BBCDFF1",
+      helpText:
+        "8 karakterlik metin veya 16 karakterlik hex key kullanabilirsin.",
+      defaultValue: "12345678",
+      parse: parseDesLibKey,
+    },
+  },
 };

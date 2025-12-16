@@ -99,3 +99,10 @@ export const parseHillKey = (raw: string): unknown => {
   return s;
 };
 
+export const parseDesLibKey = (raw: string): string => {
+  const s = String(raw ?? "").trim();
+  if (!s) {
+    throw new Error("DES (lib): key boş olamaz");
+  }
+  return s;
+};

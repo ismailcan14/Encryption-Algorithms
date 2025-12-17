@@ -106,3 +106,11 @@ export const parseDesLibKey = (raw: string): string => {
   }
   return s;
 };
+
+export const parseDesManualKey = (raw: string): string => {
+  const s = String(raw ?? "").trim();
+  if (!s) {
+    throw new Error("DES (manual): key boş olamaz");
+  }
+  return s;
+};

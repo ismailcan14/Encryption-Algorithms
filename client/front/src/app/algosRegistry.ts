@@ -10,6 +10,7 @@ import { PolybiusCipher } from "../../../cryption/algorithms/Polybius";
 import { PigpenCipher } from "../../../cryption/algorithms/Pigpen";
 import { HillCipher } from "../../../cryption/algorithms/Hill";
 import { DesLibCipher } from "../../../cryption/algorithms/DesLib";
+import { DesManualCipher } from "../../../cryption/algorithms/DesManual";
 
 import type { AlgoConfig, AlgoId } from "./types";
 import {
@@ -25,6 +26,7 @@ import {
   parsePigpenKey,
   parseHillKey,
   parseDesLibKey,
+  parseDesManualKey,
 } from "./keyParsers";
 
 const CAESAR = new CaesarCipher();
@@ -39,6 +41,7 @@ const POLYBIUS = new PolybiusCipher();
 const PIGPEN = new PigpenCipher();
 const HILL = new HillCipher();
 const DES_LIB = new DesLibCipher();
+const DES_MANUAL = new DesManualCipher();
 
 
 export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
@@ -203,4 +206,17 @@ export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
       parse: parseDesLibKey,
     },
   },
+  des_manual: {
+  id: "des_manual",
+  label: "DES (manual)",
+  cipher: DES_MANUAL,
+  key: {
+    required: true,
+    label: "Key (8 char veya 16 hex)",
+    placeholder: "Örn: 12345678  |  133457799BBCDFF1",
+    helpText: "8 karakterlik metin veya 16 karakterlik hex key kullan.",
+    defaultValue: "12345678",
+    parse: parseDesManualKey,
+  },
+},
 };

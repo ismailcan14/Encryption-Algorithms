@@ -114,3 +114,11 @@ export const parseDesManualKey = (raw: string): string => {
   }
   return s;
 };
+
+export const parseAesLibKey = (raw: string): string => {
+  const s = String(raw ?? "").trim();
+  if (!s) {
+    throw new Error("AES (lib): key boş olamaz");
+  }
+  return s;
+};

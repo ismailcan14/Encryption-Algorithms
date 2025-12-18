@@ -11,6 +11,7 @@ import { PigpenCipher } from "../../../cryption/algorithms/Pigpen";
 import { HillCipher } from "../../../cryption/algorithms/Hill";
 import { DesLibCipher } from "../../../cryption/algorithms/DesLib";
 import { DesManualCipher } from "../../../cryption/algorithms/DesManual";
+import { AesLibCipher } from "../../../cryption/algorithms/AesLib";
 
 import type { AlgoConfig, AlgoId } from "./types";
 import {
@@ -27,6 +28,7 @@ import {
   parseHillKey,
   parseDesLibKey,
   parseDesManualKey,
+  parseAesLibKey,
 } from "./keyParsers";
 
 const CAESAR = new CaesarCipher();
@@ -42,7 +44,7 @@ const PIGPEN = new PigpenCipher();
 const HILL = new HillCipher();
 const DES_LIB = new DesLibCipher();
 const DES_MANUAL = new DesManualCipher();
-
+const AES_LIB = new AesLibCipher();
 
 export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
   caesar: {
@@ -217,6 +219,21 @@ export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
     helpText: "8 karakterlik metin veya 16 karakterlik hex key kullan.",
     defaultValue: "12345678",
     parse: parseDesManualKey,
+  },
+},
+aes_lib: {
+  id: "aes_lib",
+  label: "AES (lib)",
+  cipher: AES_LIB,
+  key: {
+    required: true,
+    label: "Key (metin veya hex)",
+    placeholder:
+      "Örn: gizliKey123  |  00112233445566778899AABBCCDDEEFF",
+    helpText:
+      "Metin veya 32/48/64 karakterlik hex key (128/192/256-bit) kullan.",
+    defaultValue: "gizliKey123",
+    parse: parseAesLibKey,
   },
 },
 };

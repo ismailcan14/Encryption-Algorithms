@@ -122,3 +122,11 @@ export const parseAesLibKey = (raw: string): string => {
   }
   return s;
 };
+
+export const parseAesManualKey = (raw: string): string => {
+  const s = String(raw ?? "").trim();
+  if (!s) {
+    throw new Error("AES (manual): key boş olamaz");
+  }
+  return s;
+};

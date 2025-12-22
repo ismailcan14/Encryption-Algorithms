@@ -12,6 +12,8 @@ import { HillCipher } from "../../../cryption/algorithms/Hill";
 import { DesLibCipher } from "../../../cryption/algorithms/DesLib";
 import { DesManualCipher } from "../../../cryption/algorithms/DesManual";
 import { AesLibCipher } from "../../../cryption/algorithms/AesLib";
+import { AesManualCipher } from "../../../cryption/algorithms/AesManuel";
+
 
 import type { AlgoConfig, AlgoId } from "./types";
 import {
@@ -29,6 +31,7 @@ import {
   parseDesLibKey,
   parseDesManualKey,
   parseAesLibKey,
+  parseAesManualKey,
 } from "./keyParsers";
 
 const CAESAR = new CaesarCipher();
@@ -45,6 +48,7 @@ const HILL = new HillCipher();
 const DES_LIB = new DesLibCipher();
 const DES_MANUAL = new DesManualCipher();
 const AES_LIB = new AesLibCipher();
+const AES_MANUAL = new AesManualCipher();
 
 export const ALGO_CONFIGS: Record<AlgoId, AlgoConfig> = {
   caesar: {
@@ -236,4 +240,18 @@ aes_lib: {
     parse: parseAesLibKey,
   },
 },
+aes_manual: {
+  id: "aes_manual",
+  label: "AES (manual)",
+  cipher: AES_MANUAL,
+  key: {
+    required: true,
+    label: "Key (string veya 32-hex)",
+    placeholder: "Örn: gizliKey123  |  00112233445566778899AABBCCDDEEFF",
+    helpText: "16 byte'lık key: metin veya 32 karakter hex.",
+    defaultValue: "gizliKey123",
+    parse: parseAesManualKey,
+  },
+},
+
 };

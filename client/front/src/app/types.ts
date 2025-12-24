@@ -2,7 +2,7 @@ import type { Cipher } from "../../../cryption/type";
 
 export type AlgoId = "caesar" | "vigenere" | "substitution" | "affine" | "playfair" | "railfence" | "route" | "columnar" | "polybius" | "pigpen" | "hill" | "des_lib" | "des_manual" | "aes_lib" | "aes_manual";
 
-export type MessageType = "join" | "chat" | "key-exchange" | "system";
+export type MessageType = "join" | "chat" | "key-exchange" | "system" | "file";
 
 export type KeyExchangeAction = "public-key" | "encrypted-aes-key" | "request-key";
 
@@ -15,6 +15,9 @@ export type OutMsg = {
   publicKey?: string;
   encryptedAesKey?: string;
   sender?: string;
+  fileData?: string;
+  fileName?: string;
+  fileMime?: string;
   [k: string]: string | AlgoId | KeyExchangeAction | undefined;
 };
 
@@ -26,6 +29,11 @@ export type ChatItem = {
   room?: string;
   plain?: string;
   error?: string;
+  isFile?: boolean;
+  fileName?: string;
+  fileMime?: string;
+  fileData?: string;
+  decryptedBlob?: Blob;
 };
 
 export type AlgoKeyConfig = {

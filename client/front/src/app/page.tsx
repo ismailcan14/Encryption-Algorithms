@@ -4,12 +4,16 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import type { AlgoId, ChatItem, OutMsg, KeyExchangeInfo, KeyExchangeAlgorithm } from "./types";
 import { ALGO_CONFIGS } from "./algosRegistry";
 import { KeyInput } from "./KeyInput";
-import { MessagesPanel } from "./MessagesPanel";
 import { PigpenLegend } from "./PigpenLegend";
 import { KeyExchangePanel } from "./KeyExchangePanel";
 import { RsaKeyExchange } from "../../../cryption/key-exchange/RsaKeyExchange";
 import { EcdhKeyExchange } from "../../../cryption/key-exchange/EcdhKeyExchange";
 import { fileAesGcm } from "../../../cryption/algorithms/FileAesGcm";
+
+import {
+  Terminal, Shield, Lock, Unlock, Send, Paperclip,
+  Wifi, WifiOff, FileText, Key, Server, RefreshCw, Download
+} from "lucide-react";
 
 export default function Page() {
   const [connected, setConnected] = useState(false);
@@ -33,10 +37,22 @@ export default function Page() {
   const ecdhRef = useRef<EcdhKeyExchange>(new EcdhKeyExchange());
   const partnerPublicKeyRef = useRef<CryptoKey | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
 
   const append = (line: string) => {
-    setLog((prev) => [...prev, line]);
+    const time = new Date().toLocaleTimeString('tr-TR', { hour12: false });
+    setLog((prev) => [...prev, `[${time}] ${line}`]);
   };
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [log]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   useEffect(() => {
     const cfg = ALGO_CONFIGS[algo];
@@ -86,30 +102,30 @@ export default function Page() {
             };
             wsRef.current?.send(JSON.stringify(keyMsg));
             append(`[key-exchange] RSA public key gonderildi`);
+          } else {
+            const aesKey = rsaRef.current.generateRandomAesKey();
+            const aesKeyHex = rsaRef.current.aesKeyToHex(aesKey);
+            const encryptedAesKey = await rsaRef.current.encryptAesKey(aesKey, partnerPubKey);
+
+            const aesMsg: OutMsg = {
+              type: "key-exchange",
+              room,
+              action: "encrypted-aes-key",
+              encryptedAesKey,
+              keyExchangeAlg: "rsa",
+              sender: clientId,
+            };
+            wsRef.current?.send(JSON.stringify(aesMsg));
+            append(`[key-exchange] AES key sifrelendi ve gonderildi`);
+
+            setKeyExchange((prev) => ({
+              ...prev,
+              state: "ready",
+              sharedAesKeyHex: aesKeyHex,
+            }));
+            setKey(aesKeyHex);
+            append(`[key-exchange] Guvenli baglanti kuruldu!`);
           }
-
-          const aesKey = rsaRef.current.generateRandomAesKey();
-          const aesKeyHex = rsaRef.current.aesKeyToHex(aesKey);
-          const encryptedAesKey = await rsaRef.current.encryptAesKey(aesKey, partnerPubKey);
-
-          const aesMsg: OutMsg = {
-            type: "key-exchange",
-            room,
-            action: "encrypted-aes-key",
-            encryptedAesKey,
-            keyExchangeAlg: "rsa",
-            sender: clientId,
-          };
-          wsRef.current?.send(JSON.stringify(aesMsg));
-          append(`[key-exchange] AES key sifrelendi ve gonderildi`);
-
-          setKeyExchange((prev) => ({
-            ...prev,
-            state: "ready",
-            sharedAesKeyHex: aesKeyHex,
-          }));
-          setKey(aesKeyHex);
-          append(`[key-exchange] Guvenli baglanti kuruldu!`);
         } else {
           if (!ecdhRef.current.hasKeyPair()) {
             append(`[key-exchange] ECDH key pair olusturuluyor...`);
@@ -173,8 +189,9 @@ export default function Page() {
       fileName: msg.fileName,
       fileMime: msg.fileMime,
       fileData: msg.fileData,
+      sender: msg.sender,
     };
-    setMessages((prev) => [item, ...prev]);
+    setMessages((prev) => [...prev, item]);
     append(`[file] Sifreli dosya alindi: ${msg.fileName}`);
   }, [clientId]);
 
@@ -187,6 +204,7 @@ export default function Page() {
         cipher: obj.cipher ?? "",
         alg: obj.alg,
         room: obj.room,
+        sender: obj.sender,
       };
     } catch {
       return {
@@ -206,14 +224,12 @@ export default function Page() {
 
       ws.onopen = () => {
         setConnected(true);
-        append(`[open] ${url}`);
+        append(`[open] Baglanti basarili: ${url}`);
         const join: OutMsg = { type: "join", room };
         ws.send(JSON.stringify(join));
-        append(`[send] ${JSON.stringify(join)}`);
       };
 
       ws.onmessage = (ev) => {
-        append(`[recv] ${ev.data.slice(0, 100)}...`);
         try {
           const msg = JSON.parse(ev.data) as OutMsg;
 
@@ -227,14 +243,16 @@ export default function Page() {
             return;
           }
 
-          setMessages((prev) => [toChatItem(ev.data), ...prev]);
+          if (msg.sender === clientId) return;
+
+          setMessages((prev) => [...prev, toChatItem(ev.data)]);
         } catch {
-          setMessages((prev) => [toChatItem(ev.data), ...prev]);
+          setMessages((prev) => [...prev, toChatItem(ev.data)]);
         }
       };
 
       ws.onclose = () => {
-        append("[close]");
+        append("[close] Baglanti kesildi");
         setConnected(false);
         wsRef.current = null;
         setKeyExchange({ state: "idle", algorithm: keyExchange.algorithm });
@@ -255,6 +273,7 @@ export default function Page() {
     setConnected(false);
     setKeyExchange({ state: "idle", algorithm: keyExchange.algorithm });
     partnerPublicKeyRef.current = null;
+    append("[user] Manuel koparma islemi");
   };
 
   const startKeyExchange = async () => {
@@ -279,8 +298,6 @@ export default function Page() {
         myPublicKey = await ecdhRef.current.exportPublicKey();
       }
 
-      append(`[key-exchange] ${algorithm.toUpperCase()} key pair uretildi`);
-
       const keyMsg: OutMsg = {
         type: "key-exchange",
         room,
@@ -296,7 +313,7 @@ export default function Page() {
         state: "waiting",
         myPublicKey,
       }));
-      append(`[key-exchange] Public key gonderildi, bekleniyor...`);
+      append(`[key-exchange] Public key anons edildi.`);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       append(`[key-exchange error] ${errMsg}`);
@@ -308,7 +325,7 @@ export default function Page() {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      append(`[file] Dosya secildi: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`);
+      append(`[ui] Dosya hazir: ${file.name}`);
     }
   };
 
@@ -321,18 +338,18 @@ export default function Page() {
 
   const sendMessage = async () => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      append("[warn] WS acik degil");
+      append("[warn] WS baglantisi yok");
       return;
     }
 
     if (selectedFile) {
       if (keyExchange.state !== "ready") {
-        append("[warn] Dosya gondermek icin key exchange gerekli");
+        append("[security] Dosya gonderimi icin guvenli el sıkısma (Key Exchange) zorunludur.");
         return;
       }
 
       try {
-        append(`[file] Dosya sifreleniyor: ${selectedFile.name}`);
+        append(`[crypto] Dosya sifreleniyor (AES-GCM)...`);
         const fileBuffer = await selectedFile.arrayBuffer();
         const encrypted = await fileAesGcm.encrypt(fileBuffer, keyExchange.sharedAesKeyHex || key);
 
@@ -346,7 +363,21 @@ export default function Page() {
         };
 
         wsRef.current.send(JSON.stringify(fileMsg));
-        append(`[file] Sifreli dosya gonderildi: ${selectedFile.name}`);
+
+        const sentItem: ChatItem = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          raw: JSON.stringify(fileMsg),
+          cipher: fileMsg.fileData || "",
+          isFile: true,
+          fileName: selectedFile.name,
+          fileMime: selectedFile.type || "application/octet-stream",
+          fileData: fileMsg.fileData,
+          sender: clientId,
+          plain: `GONDERILDI: ${selectedFile.name}`,
+        };
+        setMessages((prev) => [...prev, sentItem]);
+
+        append(`[send] Sifreli dosya paketi iletildi.`);
         clearFile();
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -354,7 +385,6 @@ export default function Page() {
       }
     } else if (plain.trim()) {
       const cfg = ALGO_CONFIGS[algo];
-
       try {
         const parsedKey = cfg.key.parse(key);
         const cipherText = cfg.cipher.encrypt(plain, parsedKey);
@@ -368,11 +398,23 @@ export default function Page() {
         };
 
         wsRef.current.send(JSON.stringify(out));
-        append(`[send] Sifreli mesaj gonderildi`);
+
+        const sentItem: ChatItem = {
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          raw: JSON.stringify(out),
+          cipher: cipherText,
+          alg: algo,
+          room,
+          sender: clientId,
+          plain: plain,
+        };
+        setMessages((prev) => [...prev, sentItem]);
+
+        append(`[send] Mesaj sifrelendi ve gonderildi.`);
         setPlain("");
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        append("[warn] " + msg);
+        append("[warn] Sifreleme hatasi: " + msg);
       }
     }
   };
@@ -383,14 +425,14 @@ export default function Page() {
         if (m.id !== id) return m;
 
         if (m.isFile && m.fileData) {
-          return { ...m, plain: "Dosya cozuluyor..." };
+          return { ...m, plain: "DESIFRE EDILIYOR..." };
         }
 
         const algoId: AlgoId = m.alg || algo;
         const cfg = ALGO_CONFIGS[algoId];
 
         if (!cfg) {
-          return { ...m, error: `Algoritma bulunamadi: ${m.alg ?? "bilinmiyor"}` };
+          return { ...m, error: `Bilinmeyen Algoritma` };
         }
 
         try {
@@ -398,8 +440,7 @@ export default function Page() {
           const plain = cfg.cipher.decrypt(m.cipher, parsedKey);
           return { ...m, plain, error: undefined };
         } catch (e) {
-          const emsg = e instanceof Error ? e.message : String(e);
-          return { ...m, error: emsg };
+          return { ...m, error: "Hatali Anahtar" };
         }
       })
     );
@@ -422,151 +463,289 @@ export default function Page() {
 
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === id ? { ...m, plain: `Dosya indirildi: ${item.fileName}`, decryptedBlob: blob } : m
+            m.id === id ? { ...m, plain: `INDIRILDI: ${item.fileName}`, decryptedBlob: blob } : m
           )
         );
-        append(`[file] Dosya cozuldu: ${item.fileName}`);
+        append(`[file] Dosya basariyla desifre edildi.`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setMessages((prev) =>
-          prev.map((m) => (m.id === id ? { ...m, error: msg } : m))
+          prev.map((m) => (m.id === id ? { ...m, error: "Decrypt Hatasi" } : m))
         );
-        append(`[file error] ${msg}`);
       }
     }
   };
-
-  useEffect(() => {
-    return () => {
-      try {
-        wsRef.current?.close();
-      } catch { }
-    };
-  }, []);
 
   const algoCfg = ALGO_CONFIGS[algo];
   const isAesAlgo = algo === "aes_lib" || algo === "aes_manual";
   const canSend = connected && (plain.trim() || selectedFile);
 
+
   return (
-    <div style={{ fontFamily: "monospace", padding: 12 }}>
-      <h1>E2E Sifreli Mesajlasma</h1>
+    <div className="min-h-screen bg-slate-950 text-emerald-500 font-mono p-4 md:p-6 selection:bg-emerald-500/30">
 
-      <div style={{ display: "grid", gap: 8, maxWidth: 1100 }}>
-        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr", alignItems: "start" }}>
-          <div style={{ display: "grid", gap: 8, maxWidth: 520 }}>
-            <KeyExchangePanel
-              keyExchange={keyExchange}
-              onStartKeyExchange={startKeyExchange}
-              onAlgorithmChange={handleAlgorithmChange}
-              connected={connected}
-              algo={algo}
-            />
+      <header className="mb-6 border-b border-emerald-900/50 pb-4 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Shield className="w-8 h-8 text-emerald-400" />
+          <div>
+            <h1 className="text-2xl font-bold tracking-tighter text-emerald-100">CIPHER<span className="text-emerald-500">OPS</span></h1>
+            <p className="text-xs text-slate-500 uppercase tracking-widest">End-to-End Secure Channel</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-xs bg-slate-900 px-3 py-1 rounded border border-slate-800">
+          <div className={`w-2 h-2 rounded-full ${connected ? "bg-green-500 shadow-[0_0_10px_#22c55e]" : "bg-red-500"}`} />
+          <span className={connected ? "text-green-400" : "text-red-400"}>
+            {connected ? "SYSTEM ONLINE" : "DISCONNECTED"}
+          </span>
+          {connected && <span className="text-slate-600">| ID: {clientId}</span>}
+        </div>
+      </header>
 
-            <label>
-              WS URL:
-              <input value={url} onChange={(e) => setUrl(e.target.value)} style={{ width: "100%" }} />
-            </label>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 max-w-[1800px] mx-auto">
 
-            <label>
-              Oda:
-              <input value={room} onChange={(e) => setRoom(e.target.value)} style={{ width: "100%" }} />
-            </label>
+        <div className="lg:col-span-3 space-y-4">
 
-            <label>
-              Algoritma:
-              <select value={algo} onChange={(e) => setAlgo(e.target.value as AlgoId)} style={{ width: "100%" }}>
-                {Object.values(ALGO_CONFIGS).map((cfg) => (
-                  <option key={cfg.id} value={cfg.id}>{cfg.label}</option>
-                ))}
-              </select>
-            </label>
-
-            <KeyInput config={algoCfg.key} value={key} onChange={setKey} />
-
-            {isAesAlgo && keyExchange.state === "ready" && (
-              <div style={{ fontSize: 11, color: "#4ade80", background: "#0a2810", padding: "6px 10px", borderRadius: 4 }}>
-                {keyExchange.algorithm === "rsa" ? "RSA" : "ECDH"} ile paylasilan AES anahtari kullaniliyor
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden backdrop-blur-sm">
+            <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center gap-2">
+              <Server className="w-4 h-4 text-cyan-400" />
+              <span className="text-sm font-semibold text-slate-300">NETWORK CONFIG</span>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">WEBSOCKET URL</label>
+                <input
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  className="w-full bg-black border border-slate-700 text-slate-300 text-sm p-2 rounded focus:border-emerald-500 focus:outline-none transition-colors"
+                />
               </div>
-            )}
+              <div>
+                <label className="text-xs text-slate-500 block mb-1">TARGET ROOM</label>
+                <input
+                  value={room}
+                  onChange={(e) => setRoom(e.target.value)}
+                  className="w-full bg-black border border-slate-700 text-slate-300 text-sm p-2 rounded focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
 
-            <label>
-              Mesaj:
-              <input
-                value={plain}
-                onChange={(e) => setPlain(e.target.value)}
-                style={{ width: "100%" }}
-                placeholder={selectedFile ? "(Dosya secili)" : "Mesaj yazin..."}
-                disabled={!!selectedFile}
-                onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
-              />
-            </label>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <label style={{
-                padding: "6px 12px",
-                background: "#333",
-                borderRadius: 4,
-                cursor: "pointer",
-                border: selectedFile ? "2px solid #059669" : "1px solid #555",
-              }}>
-                {selectedFile ? selectedFile.name : "Dosya Sec"}
-                <input type="file" ref={fileInputRef} onChange={handleFileSelect} style={{ display: "none" }} />
-              </label>
-              {selectedFile && (
-                <button
-                  onClick={clearFile}
-                  style={{ padding: "6px 10px", background: "#7f1d1d", border: "none", borderRadius: 4, color: "#fff", cursor: "pointer" }}
-                >
-                  X
-                </button>
-              )}
-            </div>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              {!connected ? (
-                <button onClick={connect}>Baglan</button>
-              ) : (
-                <button onClick={disconnect}>Kopar</button>
-              )}
               <button
-                onClick={sendMessage}
-                disabled={!canSend}
-                style={{
-                  padding: "8px 16px",
-                  background: canSend ? (selectedFile ? "#059669" : "#2563eb") : "#555",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: canSend ? "pointer" : "not-allowed",
-                }}
+                onClick={connected ? disconnect : connect}
+                className={`w-full flex items-center justify-center gap-2 py-2 rounded text-sm font-bold transition-all ${connected
+                  ? "bg-red-900/20 text-red-500 border border-red-900 hover:bg-red-900/40"
+                  : "bg-emerald-600/20 text-emerald-400 border border-emerald-600/50 hover:bg-emerald-600/30 hover:shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+                  }`}
               >
-                {selectedFile ? "Dosya Gonder" : "Gonder"}
+                {connected ? <WifiOff size={16} /> : <Wifi size={16} />}
+                {connected ? "TERMINATE LINK" : "ESTABLISH LINK"}
               </button>
-            </div>
-
-            <div>
-              Durum: {connected ? "Acik" : "Kapali"}
-              {connected && ` | ID: ${clientId}`}
-            </div>
-
-            <div>
-              <div>Log:</div>
-              <pre style={{ background: "#111", color: "#ddd", padding: 8, minHeight: 100, maxHeight: 140, overflow: "auto", whiteSpace: "pre-wrap", fontSize: 11 }}>
-                {log.slice(-15).join("\n")}
-              </pre>
             </div>
           </div>
 
-          <MessagesPanel messages={messages} onDecrypt={decryptOne} />
+          <div className="bg-slate-900/50 border border-slate-800 rounded-lg overflow-hidden backdrop-blur-sm">
+            <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 flex items-center gap-2">
+              <Key className="w-4 h-4 text-cyan-400" />
+              <span className="text-sm font-semibold text-slate-300">CRYPTO MODULE</span>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <div className="relative">
+                <label className="text-xs text-slate-500 block mb-1">ALGORITHM</label>
+                <select
+                  value={algo}
+                  onChange={(e) => setAlgo(e.target.value as AlgoId)}
+                  className="w-full bg-black border border-slate-700 text-emerald-400 text-sm p-2 rounded appearance-none focus:border-emerald-500 outline-none"
+                >
+                  {Object.values(ALGO_CONFIGS).map((cfg) => (
+                    <option key={cfg.id} value={cfg.id}>{cfg.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-xs text-slate-500">SESSION KEY</div>
+                <div className="bg-black border border-slate-700 p-1 rounded">
+                  <KeyInput config={algoCfg.key} value={key} onChange={setKey} />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-800">
+                <KeyExchangePanel
+                  keyExchange={keyExchange}
+                  onStartKeyExchange={startKeyExchange}
+                  onAlgorithmChange={handleAlgorithmChange}
+                  connected={connected}
+                  algo={algo}
+                />
+              </div>
+
+              {isAesAlgo && keyExchange.state === "ready" && (
+                <div className="flex items-center gap-2 text-xs bg-emerald-950/50 text-emerald-400 p-2 rounded border border-emerald-900/50">
+                  <Lock size={12} />
+                  <span>SECURE: AES KEY SYNCED via {keyExchange.algorithm.toUpperCase()}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-6 flex flex-col h-[600px] lg:h-[700px] bg-slate-900/20 border border-slate-800 rounded-lg overflow-hidden relative">
+          <div className="absolute inset-0 opacity-5 pointer-events-none"
+            style={{ backgroundImage: 'radial-gradient(#10b981 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 relative scrollbar-thin scrollbar-thumb-emerald-900 scrollbar-track-black">
+            {messages.length === 0 && (
+              <div className="h-full flex flex-col items-center justify-center text-slate-700 opacity-50">
+                <Shield size={64} className="mb-4" strokeWidth={1} />
+                <div className="text-sm tracking-widest">SECURE CHANNEL IDLE</div>
+              </div>
+            )}
+            {messages.map((m) => {
+              const isMe = m.sender === clientId;
+
+              return (
+                <div key={m.id} className={`flex flex-col gap-1 max-w-md animate-in fade-in slide-in-from-bottom-2 duration-300 ${isMe ? 'ml-auto' : 'mr-auto'}`}>
+                  <div className="flex items-center justify-between text-[10px] text-slate-500 px-1">
+                    <span>FROM: {m.sender || 'N/A'} {isMe ? '(ME)' : ''}</span>
+                    <span>ALG: {m.alg || 'UNKNOWN'}</span>
+                  </div>
+
+                  <div className={`p-3 rounded-md border ${m.error ? 'border-red-900/50 bg-red-950/10' :
+                    m.plain ? 'border-emerald-800/50 bg-emerald-950/20' :
+                      'border-slate-700 bg-slate-900/80'
+                    }`}>
+                    {!m.plain && !m.error && (
+                      <div className="font-mono text-xs text-slate-400 break-all opacity-70">
+                        <div className="flex items-center gap-2 mb-1 text-slate-600 text-[10px] uppercase">
+                          <Lock size={10} /> Ciphertext
+                        </div>
+                        {m.isFile ? `[ENCRYPTED FILE BLOB: ${m.fileName}]` : m.cipher}
+                      </div>
+                    )}
+
+                    {m.plain && (
+                      <div className="font-mono text-sm text-emerald-300 break-words mt-1">
+                        <div className="flex items-center gap-2 mb-1 text-emerald-700 text-[10px] uppercase">
+                          <Unlock size={10} /> Decrypted
+                        </div>
+                        {m.isFile ? (
+                          <div className="flex items-center gap-2">
+                            <FileText size={16} />
+                            {m.plain}
+                          </div>
+                        ) : m.plain}
+                      </div>
+                    )}
+
+                    {m.error && <div className="text-red-400 text-xs mt-1 font-bold">ERROR: {m.error}</div>}
+
+                    {!m.plain && (
+                      <button
+                        onClick={() => decryptOne(m.id)}
+                        className="mt-2 text-[10px] bg-slate-800 hover:bg-emerald-900 text-slate-300 hover:text-emerald-400 px-2 py-1 rounded transition-colors flex items-center gap-1 w-fit"
+                      >
+                        {m.isFile ? <Download size={12} /> : <RefreshCw size={12} />}
+                        {m.isFile ? "DECRYPT & DOWNLOAD" : "DECRYPT MESSAGE"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <div className="p-4 bg-slate-900 border-t border-slate-800 z-10">
+            <div className="flex flex-col gap-3">
+
+              {selectedFile && (
+                <div className="flex items-center justify-between bg-emerald-900/20 border border-emerald-900/50 px-3 py-2 rounded text-xs text-emerald-400">
+                  <div className="flex items-center gap-2">
+                    <FileText size={14} />
+                    <span>{selectedFile.name}</span>
+                    <span className="opacity-50">({(selectedFile.size / 1024).toFixed(1)} KB)</span>
+                  </div>
+                  <button onClick={clearFile} className="hover:text-red-400 transition-colors">X</button>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <label className={`
+                            flex items-center justify-center w-12 rounded cursor-pointer border transition-all
+                            ${selectedFile ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500'}
+                        `}>
+                  <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
+                  <Paperclip size={20} />
+                </label>
+
+                <div className="flex-1 relative">
+                  <input
+                    value={plain}
+                    onChange={(e) => setPlain(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") sendMessage(); }}
+                    placeholder={selectedFile ? "Ready to transmit file..." : "Enter payload..."}
+                    disabled={!!selectedFile}
+                    className="w-full h-12 bg-black border border-slate-700 rounded px-4 text-emerald-400 placeholder-slate-600 focus:outline-none focus:border-emerald-500 font-mono transition-all"
+                  />
+                </div>
+
+                <button
+                  onClick={sendMessage}
+                  disabled={!canSend}
+                  className={`
+                                px-6 rounded font-bold tracking-wider flex items-center gap-2 transition-all
+                                ${canSend
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)]'
+                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'}
+                            `}
+                >
+                  <span>SEND</span>
+                  <Send size={16} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="lg:col-span-3 flex flex-col h-[600px] lg:h-[700px]">
+          <div className="bg-black border border-slate-800 rounded-lg overflow-hidden flex flex-col h-full">
+            <div className="bg-slate-900 px-3 py-2 flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Terminal size={14} className="text-cyan-400" />
+                <span className="text-sm font-semibold text-slate-300">SYS.LOG</span>
+              </div>
+              <div className="flex gap-1">
+                <div className="w-2 h-2 rounded-full bg-slate-700" />
+                <div className="w-2 h-2 rounded-full bg-slate-700" />
+              </div>
+            </div>
+            <div className="p-2 font-mono text-[10px] sm:text-xs overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+              {log.length === 0 && <span className="text-slate-600 italic">System ready... waiting for input.</span>}
+              {[...log].reverse().map((line, i) => (
+                <div key={i} className="mb-1 break-all">
+                  <span className="text-slate-600 mr-2">{line.split(']')[0]}]</span>
+                  <span className={
+                    line.includes('error') ? 'text-red-400' :
+                      line.includes('warn') ? 'text-amber-400' :
+                        line.includes('send') ? 'text-blue-400' :
+                          line.includes('recv') ? 'text-purple-400' :
+                            line.includes('key-exchange') ? 'text-cyan-300' :
+                              'text-slate-300'
+                  }>{line.split(']').slice(1).join(']')}</span>
+                </div>
+              ))}
+              <div ref={logEndRef} />
+            </div>
+          </div>
         </div>
       </div>
 
       {algo === "pigpen" && (
-        <div style={{ marginTop: 16, maxWidth: 920 }}>
+        <div className="mt-8 p-4 bg-white/5 rounded max-w-2xl mx-auto border border-white/10">
           <PigpenLegend />
         </div>
       )}
+
     </div>
   );
 }

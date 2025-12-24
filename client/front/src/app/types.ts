@@ -34,6 +34,7 @@ export type ChatItem = {
   fileMime?: string;
   fileData?: string;
   decryptedBlob?: Blob;
+  sender?: string;
 };
 
 export type AlgoKeyConfig = {

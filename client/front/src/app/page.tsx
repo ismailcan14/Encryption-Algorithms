@@ -387,7 +387,26 @@ export default function Page() {
       const cfg = ALGO_CONFIGS[algo];
       try {
         const parsedKey = cfg.key.parse(key);
+
+        // Şifreleme süresini ölç
+        const startTime = performance.now();
         const cipherText = cfg.cipher.encrypt(plain, parsedKey);
+        const endTime = performance.now();
+        const encryptionTime = (endTime - startTime).toFixed(3);
+
+        // Terminal'e performans bilgisi gönder
+        fetch('/api/log-performance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            operation: 'encrypt',
+            algorithm: algo,
+            type: algo.includes('manual') ? 'Manuel (Kütüphanesiz)' : 'Kütüphane Tabanlı',
+            inputLength: plain.length,
+            outputLength: cipherText.length,
+            time: encryptionTime,
+          }),
+        }).catch(() => { });
 
         const out: OutMsg = {
           type: "chat",
@@ -410,11 +429,11 @@ export default function Page() {
         };
         setMessages((prev) => [...prev, sentItem]);
 
-        append(`[send] Mesaj sifrelendi ve gonderildi.`);
+        append(`[send] Mesaj şifrelendi ve gönderildi. (${encryptionTime} ms)`);
         setPlain("");
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        append("[warn] Sifreleme hatasi: " + msg);
+        append("[warn] Şifreleme hatası: " + msg);
       }
     }
   };
@@ -437,10 +456,30 @@ export default function Page() {
 
         try {
           const parsedKey = cfg.key.parse(key);
+
+          // Şifre çözme süresini ölç
+          const startTime = performance.now();
           const plain = cfg.cipher.decrypt(m.cipher, parsedKey);
+          const endTime = performance.now();
+          const decryptionTime = (endTime - startTime).toFixed(3);
+
+          // Terminal'e performans bilgisi gönder
+          fetch('/api/log-performance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              operation: 'decrypt',
+              algorithm: algoId,
+              type: algoId.includes('manual') ? 'Manuel (Kütüphanesiz)' : 'Kütüphane Tabanlı',
+              inputLength: m.cipher.length,
+              outputLength: plain.length,
+              time: decryptionTime,
+            }),
+          }).catch(() => { });
+
           return { ...m, plain, error: undefined };
         } catch (e) {
-          return { ...m, error: "Hatali Anahtar" };
+          return { ...m, error: "Hatalı Anahtar" };
         }
       })
     );
